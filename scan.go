@@ -28,7 +28,7 @@ func stringInSlice(a string, list []string) bool {
 
 // RunCommand runs cmd on file
 func RunCommand(cmd string, path string) string {
-	fmt.Println("Running cmd: ", cmd)
+
 	cmdOut, err := exec.Command(cmd, path).Output()
 	assert(err)
 

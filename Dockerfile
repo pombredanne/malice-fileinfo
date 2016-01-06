@@ -1,44 +1,28 @@
-FROM debian:wheezy
+FROM gliderlabs/alpine:3.3
 
 MAINTAINER blacktop, https://github.com/blacktop
 
 ENV SSDEEP ssdeep-2.13
 
-COPY . /opt/info
-
-ENV PATH /opt/info:$PATH
-
-RUN buildDeps='build-essential \
-               python-dev \
-               python-pip \
-               curl' \
-  && set -x \
-  && echo 'deb http://ftp.us.debian.org/debian/ testing main contrib non-free' >> /etc/apt/sources.list \
-  && apt-get update -qq \
-  && apt-get install -t testing libc6 \
-  && apt-get install -yq $buildDeps \
-                          libimage-exiftool-perl \
-                          python --no-install-recommends \
-  && set -x \
-  && echo "Update TRiD Definitions..." \
-  && cd /opt/info/trid/ \
-  && python /opt/info/trid/tridupdate.py \
+COPY trid/trid /bin/trid
+COPY . /go/src/github.com/maliceio/malice-fileinfo
+RUN apk-install exiftool file
+RUN apk-install -t build-deps build-base curl go git mercurial \
   && echo "Installing ssdeep..." \
   && curl -Ls https://downloads.sourceforge.net/project/ssdeep/$SSDEEP/$SSDEEP.tar.gz > /tmp/$SSDEEP.tar.gz \
   && cd /tmp \
   && tar zxvf $SSDEEP.tar.gz \
   && cd $SSDEEP \
-  && ./configure \
+  && ./configure --enable-static=[libstdc++,libgcc_s] \
   && make \
   && make install \
-  && pip install envoy pydeep \
-  && echo "Clean up unnecessary files..." \
-  && apt-get purge -y --auto-remove $buildDeps \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  && rm -rf /tmp/* /root/.cache \
+  && echo "Building info Go binary..." \
+	&& cd /go/src/github.com/maliceio/malice-fileinfo \
+	&& export GOPATH=/go \
+	&& go get \
+	&& go build -ldflags "-X main.Version=0.1.0" -o /bin/info \
+	&& rm -rf /go \
+	&& apk del --purge build-deps
 
-VOLUME ["/malware"]
-
-WORKDIR /malware
-
-ENTRYPOINT ["/opt/info/scan"]
+ENTRYPOINT ["/bin/info"]

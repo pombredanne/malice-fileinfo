@@ -6,14 +6,14 @@ ENV SSDEEP ssdeep-2.13
 
 COPY trid/trid /bin/trid
 COPY . /go/src/github.com/maliceio/malice-fileinfo
-RUN apk-install exiftool file
+RUN apk-install exiftool file libstdc++
 RUN apk-install -t build-deps build-base curl go git mercurial \
   && echo "Installing ssdeep..." \
   && curl -Ls https://downloads.sourceforge.net/project/ssdeep/$SSDEEP/$SSDEEP.tar.gz > /tmp/$SSDEEP.tar.gz \
   && cd /tmp \
   && tar zxvf $SSDEEP.tar.gz \
   && cd $SSDEEP \
-  && ./configure --enable-static=[libstdc++,libgcc_s] \
+  && ./configure --enable-shared=no \
   && make \
   && make install \
   && rm -rf /tmp/* /root/.cache \

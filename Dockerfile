@@ -30,7 +30,7 @@ RUN apk-install -t build-deps build-base curl go git mercurial \
   && cd /go/src/github.com/maliceio/malice-fileinfo \
   && export GOPATH=/go \
   && go get \
-  && go build -ldflags "-X main.Version=0.1.0" -o /bin/info \
+  && go build -ldflags "-X main.Version $(cat VERSION)" -o /bin/info \
   && rm -rf /go \
   && apk del --purge build-deps
 

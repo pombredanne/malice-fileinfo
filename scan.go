@@ -7,9 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/codegangsta/cli"
 )
+
+// FileInfo json object
+type FileInfo struct {
+	SSDeep   string            `json:"ssdeep"`
+	TRiD     []string          `json:"trid"`
+	Exiftool map[string]string `json:"exiftool"`
+}
 
 func assert(err error) {
 	if err != nil {
@@ -36,7 +41,7 @@ func RunCommand(cmd string, path string) string {
 }
 
 // ParseExiftoolOutput convert exiftool output into JSON
-func ParseExiftoolOutput(exifout string) []byte {
+func ParseExiftoolOutput(exifout string) map[string]string {
 
 	var ignoreTags = []string{
 		"Directory",
@@ -45,7 +50,6 @@ func ParseExiftoolOutput(exifout string) []byte {
 		"File Modification Date/Time",
 	}
 
-	exifJSON := make(map[string]map[string]string)
 	lines := strings.Split(exifout, "\n")
 	datas := make(map[string]string, len(lines))
 
@@ -59,68 +63,54 @@ func ParseExiftoolOutput(exifout string) []byte {
 		}
 	}
 
-	exifJSON["exiftool"] = datas
-	jsonExif, err := json.Marshal(exifJSON)
-	assert(err)
-
-	return jsonExif
+	return datas
 }
 
 // ParseSsdeepOutput convert ssdeep output into JSON
-func ParseSsdeepOutput(ssdout string) []byte {
+func ParseSsdeepOutput(ssdout string) string {
 
-	datas := make(map[string]string, 1)
 	// Break output into lines
 	lines := strings.Split(ssdout, "\n")
 	// Break second line into hash and path
 	hashAndPath := strings.Split(lines[1], ",")
-	// Add hash to map
-	datas["ssdeep"] = strings.TrimSpace(hashAndPath[0])
 
-	jsonSsdeep, err := json.Marshal(datas)
-	assert(err)
-
-	return jsonSsdeep
+	return strings.TrimSpace(hashAndPath[0])
 }
 
 // ParseTRiDOutput convert trid output into JSON
-func ParseTRiDOutput(ssdout string) []byte {
-	lines := strings.Split(ssdout, "\n")
-	lines = lines[1:]
+func ParseTRiDOutput(tridout string) []string {
 
+	keepLines := []string{}
+
+	lines := strings.Split(tridout, "\n")
+	lines = lines[6:]
 	// fmt.Println(lines)
 
-	datas := make(map[string]string, 1)
 	for _, line := range lines {
-		keyvalue := strings.Split(line, ",")
-		if len(keyvalue) != 2 {
-			continue
+		if len(line) != 0 {
+			keepLines = append(keepLines, strings.TrimSpace(line))
 		}
-		// fmt.Println(keyvalue)
-		datas["ssdeep"] = strings.TrimSpace(keyvalue[0])
 	}
-	j, err := json.Marshal(datas)
-	assert(err)
-	return j
+
+	return keepLines
 }
 
 func main() {
-	// argPath := os.Args[1]
-	app := cli.NewApp()
-	app.Name = "greet"
-	app.Usage = "fight the loneliness!"
-	app.Action = func(c *cli.Context) {
-		path := c.Args().First()
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			assert(err)
-		}
-		ssdeepJSON := ParseSsdeepOutput(RunCommand("ssdeep", path))
-		// tridJSON := ParseTRiDOutput(RunCommand("trid", path))
-		exiftoolJSON := ParseExiftoolOutput(RunCommand("exiftool", path))
-		fmt.Println(string(ssdeepJSON))
-		// fmt.Println(tridJSON)
-		fmt.Println(string(exiftoolJSON))
+
+	path := os.Args[1]
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		assert(err)
 	}
 
-	app.Run(os.Args)
+	fileInfo := FileInfo{
+		SSDeep:   ParseSsdeepOutput(RunCommand("ssdeep", path)),
+		TRiD:     ParseTRiDOutput(RunCommand("trid", path)),
+		Exiftool: ParseExiftoolOutput(RunCommand("exiftool", path)),
+	}
+
+	fileInfoJSON, err := json.Marshal(fileInfo)
+	assert(err)
+
+	fmt.Println(string(fileInfoJSON))
 }
